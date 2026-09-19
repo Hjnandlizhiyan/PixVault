@@ -56,7 +56,7 @@ fun SimilarImagesScreen(
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onBack) { Text("返回") }
+            BackButton(onClick = onBack)
             Text(
                 "相似图片",
                 style = MaterialTheme.typography.titleMedium,
@@ -68,13 +68,11 @@ fun SimilarImagesScreen(
         when {
             list == null -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("计算中...", style = MaterialTheme.typography.bodyMedium)
+                    MascotLoading(modifier = Modifier.fillMaxWidth())
                 }
             }
             list.isEmpty() -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("暂无相似图片（可能特征尚未计算完成）", style = MaterialTheme.typography.bodyMedium)
-                }
+                MascotEmptyState(message = "暂时没有相似图片，特征计算完成后再来看看")
             }
             else -> {
                 val imageList = list.map { it.first }

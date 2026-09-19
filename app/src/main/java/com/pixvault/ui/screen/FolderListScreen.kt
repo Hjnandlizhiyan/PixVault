@@ -55,7 +55,7 @@ fun FolderListScreen(
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onBack) { Text("返回") }
+            BackButton(onClick = onBack)
             Text(
                 "文件夹",
                 style = MaterialTheme.typography.titleMedium,

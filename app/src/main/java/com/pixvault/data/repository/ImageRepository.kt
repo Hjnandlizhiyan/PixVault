@@ -5,6 +5,7 @@ import com.pixvault.data.db.entity.ImageEntity
 import com.pixvault.data.processor.ImageProcessor
 import com.pixvault.data.storage.StoredImageFileManager
 import com.pixvault.data.util.VectorUtils
+import com.pixvault.data.util.PhotoMetadataReader
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 
@@ -16,6 +17,10 @@ class ImageRepository(
     private val imageTagDao = database.imageTagDao()
 
     fun observeImages(): Flow<List<ImageEntity>> = imageDao.observeAll()
+
+    fun observePrivateImages(): Flow<List<ImageEntity>> = imageDao.observePrivate()
+
+    fun observeLocatedImages(): Flow<List<ImageEntity>> = imageDao.observeLocated()
 
     fun observeImagesByTag(tagId: Long): Flow<List<ImageEntity>> = imageDao.observeImagesByTag(tagId)
 
@@ -97,6 +102,23 @@ class ImageRepository(
         imageDao.updateFavoriteAll(ids, favorite)
     }
 
+    suspend fun updatePrivateAll(ids: List<Long>, isPrivate: Boolean) {
+        imageDao.updatePrivateAll(ids, isPrivate)
+    }
+
+    suspend fun backfillPhotoMetadata() {
+        imageDao.getPendingMetadata().forEach { image ->
+            val path = image.path ?: image.uri
+            val metadata = PhotoMetadataReader.read(path)
+            imageDao.updateMetadata(
+                id = image.id,
+                dateTaken = metadata.dateTaken,
+                latitude = metadata.latitude,
+                longitude = metadata.longitude
+            )
+        }
+    }
+
     suspend fun createProcessedImage(
         source: ImageEntity,
         result: ImageProcessor.Result,
@@ -118,7 +140,8 @@ class ImageRepository(
             mimeType = result.mimeType,
             createdTime = now,
             modifiedTime = now,
-            hasAlpha = result.mimeType == "image/png" || result.mimeType == "image/webp"
+            hasAlpha = result.mimeType == "image/png" || result.mimeType == "image/webp",
+            metadataIndexed = true
         )
         return imageDao.insert(entity)
     }
@@ -171,5 +194,34 @@ class ImageRepository(
             result.add(img to sim)
         }
         return result.sortedByDescending { it.second }.take(limit)
+    }
+
+    suspend fun findSimilarGroups(
+        threshold: Float = 0.90f,
+        maxImages: Int = 500
+    ): List<List<Pair<ImageEntity, Float>>> {
+        val candidates = imageDao.getAllWithEmbedding().take(maxImages)
+        val consumed = mutableSetOf<Long>()
+        val groups = mutableListOf<List<Pair<ImageEntity, Float>>>()
+        for (source in candidates) {
+            if (source.id in consumed) continue
+            val sourceBytes = source.embedding ?: continue
+            val sourceVector = VectorUtils.toFloatArray(sourceBytes)
+            val matches = candidates.asSequence()
+                .filter { it.id != source.id && it.id !in consumed }
+                .mapNotNull { candidate ->
+                    val bytes = candidate.embedding ?: return@mapNotNull null
+                    val score = VectorUtils.cosine(sourceVector, VectorUtils.toFloatArray(bytes))
+                    if (score >= threshold) candidate to score else null
+                }
+                .sortedByDescending { it.second }
+                .toList()
+            if (matches.isNotEmpty()) {
+                val group = listOf(source to 1f) + matches
+                consumed += group.map { it.first.id }
+                groups += group
+            }
+        }
+        return groups.sortedByDescending { it.size }
     }
 }

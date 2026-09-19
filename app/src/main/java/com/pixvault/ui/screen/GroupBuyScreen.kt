@@ -37,7 +37,7 @@ fun GroupBuyScreen(onBack: () -> Unit) {
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onBack) { Text("返回") }
+            BackButton(onClick = onBack)
             Text(
                 "玩偶团购",
                 style = MaterialTheme.typography.titleMedium,

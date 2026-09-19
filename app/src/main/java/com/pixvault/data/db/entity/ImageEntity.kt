@@ -27,5 +27,10 @@ data class ImageEntity(
     @ColumnInfo(defaultValue = "0") val isFavorite: Boolean = false,
     val embedding: ByteArray? = null,
     val deletedTime: Long? = null,
-    val contentHash: String? = null
+    val contentHash: String? = null,
+    @ColumnInfo(defaultValue = "0") val isPrivate: Boolean = false,
+    val dateTaken: Long? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    @ColumnInfo(defaultValue = "0") val metadataIndexed: Boolean = false
 )

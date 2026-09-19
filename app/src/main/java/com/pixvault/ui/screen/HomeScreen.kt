@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,8 +19,10 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -30,8 +33,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -48,11 +55,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.pixvault.R
 import com.pixvault.data.db.entity.ImageEntity
 import com.pixvault.data.embedding.EmbeddingService
 import com.pixvault.data.importer.ImageImporter
@@ -75,8 +85,7 @@ fun HomeScreen(
     tagRepository: TagRepository,
     onImageClick: (List<ImageEntity>, Int) -> Unit,
     onManageTags: () -> Unit,
-    onOpenFolders: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenFolders: () -> Unit
 ) {
     val images by repository.observeImages().collectAsState(initial = emptyList())
     val imageTagNames by tagRepository.observeImageTagNames().collectAsState(initial = emptyList())
@@ -94,6 +103,7 @@ fun HomeScreen(
     var semanticMessage by remember { mutableStateOf("") }
     var sortModeName by rememberSaveable { mutableStateOf(GallerySort.Newest.name) }
     var gridColumns by rememberSaveable { mutableIntStateOf(3) }
+    var controlsExpanded by rememberSaveable { mutableStateOf(true) }
     val sortMode = GallerySort.valueOf(sortModeName)
     val scope = rememberCoroutineScope()
 
@@ -248,15 +258,33 @@ fun HomeScreen(
                         .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "素材工坊",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = BrandBlue
+                    Image(
+                        painter = painterResource(R.drawable.pixvault_workshop_badge),
+                        contentDescription = "PixVault 素材工坊",
+                        modifier = Modifier.size(44.dp),
+                        contentScale = ContentScale.Fit
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text("${images.size} 张", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "素材工坊",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = BrandBlue
+                        )
+                        Text(
+                            "${images.size} 张",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = { controlsExpanded = !controlsExpanded }) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_expand_more),
+                            contentDescription = if (controlsExpanded) "收起首页控制区" else "展开首页控制区",
+                            modifier = Modifier.rotate(if (controlsExpanded) 180f else 0f)
+                        )
+                    }
                     Button(
                         onClick = {
                             picker.launch(
@@ -271,74 +299,122 @@ fun HomeScreen(
                             contentColor = Color.White
                         )
                     ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_action_import),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text("导入")
                     }
                 }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    ActionButton("⚙ 设置", onOpenSettings, Modifier.weight(1f))
-                    ActionButton("多选", { selectionMode = true }, Modifier.weight(1f))
-                    ActionButton("文件夹", onOpenFolders, Modifier.weight(1f))
-                    ActionButton("标签", onManageTags, Modifier.weight(1f))
+                if (controlsExpanded) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(22.dp)),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            TextButton(onClick = { selectionMode = true }) {
+                                Icon(
+                                    painterResource(R.drawable.ic_nav_select),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(" 多选")
+                            }
+                            TextButton(onClick = onOpenFolders) {
+                                Icon(
+                                    painterResource(R.drawable.ic_nav_folder),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(" 文件夹")
+                            }
+                            TextButton(onClick = onManageTags) {
+                                Icon(
+                                    painterResource(R.drawable.ic_nav_tag),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(" 标签")
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            singleLine = true,
-            placeholder = {
-                Text(if (semanticMode) "描述画面，如：海边的日落" else "搜索文件名或 #标签")
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilterChip(
-                selected = !semanticMode,
-                onClick = {
-                    semanticMode = false
-                    semanticResults = null
-                    semanticMessage = ""
-                },
-                label = { Text("文件名/标签") }
-            )
-            FilterChip(
-                selected = semanticMode,
-                onClick = {
-                    if (!semanticMode) {
-                        semanticMode = true
+        if (controlsExpanded && !selectionMode) {
+            if (images.isNotEmpty()) {
+                AiMascotBanner(
+                    imageCount = images.size,
+                    semanticMode = semanticMode,
+                    onClick = {
+                        semanticMode = !semanticMode
                         semanticResults = null
                         semanticMessage = ""
                     }
+                )
+            }
+
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                singleLine = true,
+                placeholder = {
+                    Text(if (semanticMode) "描述画面，如：海边的日落" else "搜索文件名或 #标签")
                 },
-                label = { Text("语义搜图") }
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
             )
-            if (semanticMode) {
-                Button(
-                    onClick = runSemanticSearch,
-                    enabled = !semanticLoading && searchQuery.isNotBlank(),
-                    shape = RoundedCornerShape(20.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = BrandBlue,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text("搜索")
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = !semanticMode,
+                    onClick = {
+                        semanticMode = false
+                        semanticResults = null
+                        semanticMessage = ""
+                    },
+                    label = { Text("文件名/标签") }
+                )
+                FilterChip(
+                    selected = semanticMode,
+                    onClick = {
+                        if (!semanticMode) {
+                            semanticMode = true
+                            semanticResults = null
+                            semanticMessage = ""
+                        }
+                    },
+                    label = { Text("语义搜图") }
+                )
+                if (semanticMode) {
+                    Button(
+                        onClick = runSemanticSearch,
+                        enabled = !semanticLoading && searchQuery.isNotBlank(),
+                        shape = RoundedCornerShape(20.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BrandBlue,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("搜索")
+                    }
                 }
             }
         }
@@ -371,10 +447,10 @@ fun HomeScreen(
             }
         }
 
-        if (semanticLoading) {
+        if (controlsExpanded && semanticLoading) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
-        if (semanticMode && semanticMessage.isNotEmpty()) {
+        if (controlsExpanded && semanticMode && semanticMessage.isNotEmpty()) {
             Text(
                 semanticMessage,
                 style = MaterialTheme.typography.bodySmall,
@@ -383,40 +459,54 @@ fun HomeScreen(
         }
 
         if (selectionMode) {
-            Row(
+            val actionsEnabled = selectedIds.isNotEmpty()
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
-                Button(
-                    onClick = {
-                        val ids = selectedIds.toList()
-                        scope.launch {
-                            repository.updateFavoriteAll(ids, true)
-                            message = "已收藏 ${ids.size} 张"
-                            exitSelection()
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    SelectionActionItem(
+                        label = "收藏",
+                        icon = R.drawable.ic_action_favorite,
+                        enabled = actionsEnabled,
+                        onClick = {
+                            val ids = selectedIds.toList()
+                            scope.launch {
+                                repository.updateFavoriteAll(ids, true)
+                                message = "已收藏 ${ids.size} 张"
+                                exitSelection()
+                            }
                         }
-                    },
-                    enabled = selectedIds.isNotEmpty(),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("收藏")
-                }
-                Button(
-                    onClick = { showBatchTagDialog = true },
-                    enabled = selectedIds.isNotEmpty(),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("加标签")
-                }
-                Button(
-                    onClick = { showBatchDeleteDialog = true },
-                    enabled = selectedIds.isNotEmpty(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("删除", color = Color.White)
+                    )
+                    SelectionActionItem(
+                        label = "加标签",
+                        icon = R.drawable.ic_nav_tag,
+                        enabled = actionsEnabled,
+                        onClick = { showBatchTagDialog = true }
+                    )
+                    SelectionActionItem(
+                        label = "私密",
+                        icon = R.drawable.ic_nav_private,
+                        enabled = actionsEnabled,
+                        onClick = {
+                            val ids = selectedIds.toList()
+                            scope.launch {
+                                repository.updatePrivateAll(ids, true)
+                                message = "已将 ${ids.size} 张移入私密空间"
+                                exitSelection()
+                            }
+                        }
+                    )
+                    SelectionActionItem(
+                        label = "删除",
+                        icon = R.drawable.ic_action_delete,
+                        enabled = actionsEnabled,
+                        destructive = true,
+                        onClick = { showBatchDeleteDialog = true }
+                    )
                 }
             }
         }
@@ -435,38 +525,55 @@ fun HomeScreen(
         when {
             images.isEmpty() && !importing -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("点击「导入」选择要入库的照片", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-            displayedImages.isEmpty() -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("没有匹配的图片", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-            else -> {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(gridColumns),
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(4.dp)
-                ) {
-                    itemsIndexed(displayedImages, key = { _, it -> it.id }) { index, image ->
-                        ImageCell(
-                            image = image,
-                            selected = selectionMode && image.id in selectedIds,
-                            onClick = {
-                                if (selectionMode) {
-                                    selectedIds = if (image.id in selectedIds) {
-                                        selectedIds - image.id
-                                    } else {
-                                        selectedIds + image.id
-                                    }
-                                } else {
-                                    onImageClick(displayedImages, index)
-                                }
-                            }
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(horizontal = 32.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.empty_gallery_anime),
+                            contentDescription = null,
+                            modifier = Modifier.width(220.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "把喜欢的瞬间收进 PixVault",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "点击「导入」选择照片，整理与搜索都在本机完成",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
+            }
+            displayedImages.isEmpty() -> {
+                MascotEmptyState(message = "没有找到匹配的图片，换个关键词试试吧")
+            }
+            else -> {
+                TimelineImageGrid(
+                    images = displayedImages,
+                    columns = gridColumns,
+                    selectedIds = if (selectionMode) selectedIds else emptySet(),
+                    onImageClick = { image ->
+                        if (selectionMode) {
+                            selectedIds = if (image.id in selectedIds) {
+                                selectedIds - image.id
+                            } else {
+                                selectedIds + image.id
+                            }
+                        } else {
+                            onImageClick(
+                                displayedImages,
+                                displayedImages.indexOfFirst { it.id == image.id }
+                            )
+                        }
+                    }
+                )
             }
         }
     }
@@ -522,28 +629,114 @@ fun HomeScreen(
     }
 }
 
-private val BrandBlue = Color(0xFF4D6BFE)
-
 @Composable
-private fun ActionButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+private fun AiMascotBanner(
+    imageCount: Int,
+    semanticMode: Boolean,
+    onClick: () -> Unit
 ) {
-    Button(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 10.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = BrandBlue.copy(alpha = 0.14f),
-            contentColor = BrandBlue
-        ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+    val dailyExamples = listOf(
+        "海边的日落",
+        "穿蓝色衣服的人",
+        "雨天窗边的猫",
+        "夜晚城市灯光",
+        "樱花下的合照",
+        "桌上的咖啡与书",
+        "紫色天空和云"
+    )
+    val dayNumber = System.currentTimeMillis() / 86_400_000L
+    val dailyExample = dailyExamples[
+        Math.floorMod(dayNumber, dailyExamples.size.toLong()).toInt()
+    ]
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .height(104.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.primaryContainer
     ) {
-        Text(text)
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 16.dp, end = 124.dp)
+            ) {
+                Text(
+                    "今日图库 · $imageCount 张",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Text(
+                    if (semanticMode) {
+                        "语义搜图已开启，再点一次回到文件名/标签搜索"
+                    } else {
+                        "今日搜索灵感：“$dailyExample” · 点击开启"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            Image(
+                painter = painterResource(R.drawable.empty_gallery_anime),
+                contentDescription = "今日图库助手",
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(120.dp)
+                    .padding(end = 2.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
     }
 }
+
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.SelectionActionItem(
+    label: String,
+    icon: Int,
+    enabled: Boolean,
+    destructive: Boolean = false,
+    onClick: () -> Unit
+) {
+    val activeColor = if (destructive) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+    val contentColor = if (enabled) {
+        activeColor
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+    }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .weight(1f)
+            .height(76.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = null,
+            tint = contentColor,
+            modifier = Modifier.size(22.dp)
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = contentColor,
+            maxLines = 1,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+private val BrandBlue = Color(0xFF4D6BFE)
 
 private fun filterImages(
     images: List<ImageEntity>,

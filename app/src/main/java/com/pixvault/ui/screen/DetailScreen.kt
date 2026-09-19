@@ -1,7 +1,12 @@
 package com.pixvault.ui.screen
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -42,12 +47,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.pixvault.R
 import com.pixvault.data.db.entity.ImageEntity
 import com.pixvault.data.db.entity.TagEntity
 import com.pixvault.data.embedding.EmbeddingService
@@ -77,6 +84,7 @@ fun DetailScreen(
     onNext: () -> Unit,
     onOpenEditor: () -> Unit
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var favorite by remember { mutableStateOf(image.isFavorite) }
     var showAddTag by remember { mutableStateOf(false) }
@@ -115,7 +123,7 @@ fun DetailScreen(
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onBack) { Text("返回") }
+            BackButton(onClick = onBack)
             Text(
                 fileName,
                 style = MaterialTheme.typography.titleMedium,
@@ -209,11 +217,28 @@ fun DetailScreen(
                 }
             }
 
-            Text(
-                "推荐标签（模型推理）",
-                style = MaterialTheme.typography.titleSmall,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 16.dp)
-            )
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.empty_gallery_anime),
+                    contentDescription = null,
+                    modifier = Modifier.size(52.dp),
+                    contentScale = ContentScale.Fit
+                )
+                Column(modifier = Modifier.padding(start = 8.dp)) {
+                    Text(
+                        "AI 标签助手",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        "根据本地模型推荐标签",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             if (similarTags.isEmpty()) {
                 Text(
                     "暂无推荐结果：请先在「标签」页为标签设置正例样本",
@@ -262,6 +287,29 @@ fun DetailScreen(
             InfoRow("大小", formatSize(image.fileSize))
             InfoRow("类型", image.mimeType)
             InfoRow("导入时间", formatTime(image.createdTime))
+            image.dateTaken?.let { InfoRow("拍摄时间", formatTime(it)) }
+            if (image.latitude != null && image.longitude != null) {
+                InfoRow(
+                    "位置",
+                    String.format(Locale.US, "%.5f, %.5f", image.latitude, image.longitude)
+                )
+                TextButton(
+                    onClick = {
+                        val geo = Uri.parse(
+                            "geo:${image.latitude},${image.longitude}" +
+                                "?q=${image.latitude},${image.longitude}"
+                        )
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, geo))
+                        }.onFailure {
+                            Toast.makeText(context, "未找到可用的地图应用", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("在地图中查看拍摄位置")
+                }
+            }
 
             Button(
                 onClick = {

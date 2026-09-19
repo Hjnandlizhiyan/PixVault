@@ -46,7 +46,7 @@ fun FavoritesScreen(
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onBack) { Text("返回") }
+            BackButton(onClick = onBack)
             Text(
                 "收藏",
                 style = MaterialTheme.typography.titleMedium,
@@ -56,9 +56,7 @@ fun FavoritesScreen(
         }
 
         if (images.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("暂无收藏图片，可在图片详情页点击「收藏」", style = MaterialTheme.typography.bodyMedium)
-            }
+            MascotEmptyState(message = "暂无收藏图片，可在图片详情页点击「收藏」")
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),

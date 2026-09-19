@@ -48,7 +48,7 @@ fun FolderImagesScreen(
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onBack) { Text("返回") }
+            BackButton(onClick = onBack)
             Text(
                 tag.name,
                 style = MaterialTheme.typography.titleMedium,
@@ -58,9 +58,7 @@ fun FolderImagesScreen(
         }
 
         if (images.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("该文件夹暂无图片", style = MaterialTheme.typography.bodyMedium)
-            }
+            MascotEmptyState(message = "这个文件夹还是空的，去给喜欢的图片添加标签吧")
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),

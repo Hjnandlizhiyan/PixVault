@@ -59,7 +59,7 @@ fun TrashScreen(
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onBack) { Text("返回") }
+            BackButton(onClick = onBack)
             Text(
                 "回收站",
                 style = MaterialTheme.typography.titleMedium,
@@ -74,9 +74,7 @@ fun TrashScreen(
         }
 
         if (images.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("回收站为空", style = MaterialTheme.typography.bodyMedium)
-            }
+            MascotEmptyState(message = "回收站空空的，照片都被好好收藏着")
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),

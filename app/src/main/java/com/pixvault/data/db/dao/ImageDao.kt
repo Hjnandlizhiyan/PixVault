@@ -9,8 +9,17 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ImageDao {
-    @Query("SELECT * FROM images WHERE deletedTime IS NULL ORDER BY modifiedTime DESC")
+    @Query("SELECT * FROM images WHERE deletedTime IS NULL AND isPrivate = 0 ORDER BY COALESCE(dateTaken, modifiedTime) DESC")
     fun observeAll(): Flow<List<ImageEntity>>
+
+    @Query("SELECT * FROM images WHERE deletedTime IS NULL AND isPrivate = 1 ORDER BY COALESCE(dateTaken, modifiedTime) DESC")
+    fun observePrivate(): Flow<List<ImageEntity>>
+
+    @Query("SELECT * FROM images WHERE deletedTime IS NULL AND isPrivate = 0 AND latitude IS NOT NULL AND longitude IS NOT NULL ORDER BY COALESCE(dateTaken, modifiedTime) DESC")
+    fun observeLocated(): Flow<List<ImageEntity>>
+
+    @Query("SELECT * FROM images WHERE metadataIndexed = 0")
+    suspend fun getPendingMetadata(): List<ImageEntity>
 
     @Query("SELECT * FROM images WHERE deletedTime IS NOT NULL ORDER BY deletedTime DESC")
     fun observeTrashed(): Flow<List<ImageEntity>>
@@ -32,14 +41,14 @@ interface ImageDao {
 
     @Query(
         "SELECT i.* FROM images i INNER JOIN image_tags it ON i.id = it.imageId " +
-            "WHERE it.tagId = :tagId AND i.deletedTime IS NULL ORDER BY i.modifiedTime DESC"
+            "WHERE it.tagId = :tagId AND i.deletedTime IS NULL AND i.isPrivate = 0 ORDER BY i.modifiedTime DESC"
     )
     fun observeImagesByTag(tagId: Long): Flow<List<ImageEntity>>
 
-    @Query("SELECT * FROM images WHERE isFavorite = 1 AND deletedTime IS NULL ORDER BY modifiedTime DESC")
+    @Query("SELECT * FROM images WHERE isFavorite = 1 AND deletedTime IS NULL AND isPrivate = 0 ORDER BY modifiedTime DESC")
     fun observeFavorites(): Flow<List<ImageEntity>>
 
-    @Query("SELECT * FROM images WHERE embedding IS NOT NULL AND deletedTime IS NULL")
+    @Query("SELECT * FROM images WHERE embedding IS NOT NULL AND deletedTime IS NULL AND isPrivate = 0")
     suspend fun getAllWithEmbedding(): List<ImageEntity>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -95,7 +104,17 @@ interface ImageDao {
     @Query("UPDATE images SET isFavorite = :favorite WHERE id IN (:ids)")
     suspend fun updateFavoriteAll(ids: List<Long>, favorite: Boolean)
 
-    @Query("SELECT COUNT(*) FROM images WHERE deletedTime IS NULL")
+    @Query("UPDATE images SET isPrivate = :isPrivate WHERE id IN (:ids)")
+    suspend fun updatePrivateAll(ids: List<Long>, isPrivate: Boolean)
+
+    @Query("UPDATE images SET dateTaken = :dateTaken, latitude = :latitude, longitude = :longitude, metadataIndexed = 1 WHERE id = :id")
+    suspend fun updateMetadata(
+        id: Long,
+        dateTaken: Long?,
+        latitude: Double?,
+        longitude: Double?
+    )
+    @Query("SELECT COUNT(*) FROM images WHERE deletedTime IS NULL AND isPrivate = 0")
     suspend fun count(): Int
 
     @Query("SELECT COUNT(*) FROM images WHERE deletedTime IS NOT NULL")

@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import com.pixvault.data.db.entity.ImageEntity
 import com.pixvault.data.util.Hashing
+import com.pixvault.data.util.PhotoMetadataReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -44,6 +45,8 @@ class ImageImporter(private val context: Context) {
             val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(dest.absolutePath, opts)
 
+            val metadata = PhotoMetadataReader.read(dest.absolutePath)
+
             val now = System.currentTimeMillis()
             ImageEntity(
                 uri = dest.absolutePath,
@@ -54,9 +57,13 @@ class ImageImporter(private val context: Context) {
                 fileSize = dest.length(),
                 mimeType = mimeType,
                 createdTime = now,
-                modifiedTime = now,
+                modifiedTime = metadata.dateTaken ?: now,
                 hasAlpha = mimeType == "image/png" || mimeType == "image/webp",
-                contentHash = contentHash
+                contentHash = contentHash,
+                dateTaken = metadata.dateTaken,
+                latitude = metadata.latitude,
+                longitude = metadata.longitude,
+                metadataIndexed = true
             )
         } catch (e: Exception) {
             null

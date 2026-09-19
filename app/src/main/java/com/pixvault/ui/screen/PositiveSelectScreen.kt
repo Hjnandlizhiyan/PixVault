@@ -66,7 +66,7 @@ fun PositiveSelectScreen(
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onBack) { Text("返回") }
+            BackButton(onClick = onBack)
             Text(
                 "正例 · ${tag.name}",
                 style = MaterialTheme.typography.titleMedium,
@@ -84,9 +84,7 @@ fun PositiveSelectScreen(
         }
 
         if (images.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("还没有图片，请先在首页导入", style = MaterialTheme.typography.bodyMedium)
-            }
+            MascotEmptyState(message = "还没有可选图片，请先回到首页导入")
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),

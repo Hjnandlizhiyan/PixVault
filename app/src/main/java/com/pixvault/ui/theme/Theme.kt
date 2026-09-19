@@ -1,29 +1,45 @@
 package com.pixvault.ui.theme
 
-import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = Color(0xFFB8C4FF),
+    onPrimary = Color(0xFF14215F),
+    primaryContainer = Color(0xFF303F85),
+    onPrimaryContainer = Color(0xFFDDE1FF),
+    secondary = Color(0xFFD0BCFF),
+    secondaryContainer = Color(0xFF463769),
+    tertiary = Color(0xFF9DD7FF),
+    background = Color(0xFF0E1020),
+    surface = Color(0xFF141628),
+    surfaceVariant = Color(0xFF2B2D42),
+    surfaceContainerLow = Color(0xFF191B30),
+    surfaceContainer = Color(0xFF1D2036),
+    onBackground = Color(0xFFE7E7F4),
+    onSurface = Color(0xFFE7E7F4),
+    onSurfaceVariant = Color(0xFFC7C6D8),
+    outline = Color(0xFF8F8EA3)
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    primary = Color(0xFF4D5FCE),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFDDE1FF),
+    onPrimaryContainer = Color(0xFF101C5A),
+    secondary = Color(0xFF73558F),
+    tertiary = Color(0xFF25658A),
+    background = Color(0xFFFAF8FF),
+    surface = Color(0xFFFAF8FF),
+    surfaceContainerLow = Color(0xFFF3F0FC),
+    surfaceContainer = Color(0xFFEDEAF6)
 
     /* Other default colors to override
     background = Color(0xFFFFFBFE),
@@ -40,18 +56,10 @@ private val LightColorScheme = lightColorScheme(
 fun PixVaultTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     MaterialTheme(
         colorScheme = colorScheme,
