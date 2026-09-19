@@ -74,7 +74,11 @@ fun TrashScreen(
         }
 
         if (images.isEmpty()) {
-            MascotEmptyState(message = "回收站空空的，照片都被好好收藏着")
+            MascotMoodState(
+                mood = MascotMood.Sleepy,
+                title = "暂时不用我工作啦",
+                message = "回收站空空的，照片都被好好收藏着"
+            )
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),

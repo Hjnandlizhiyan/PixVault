@@ -9,16 +9,20 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -140,21 +144,14 @@ fun DetailScreen(
             }
         }
 
-        Box(
+        SmartImagePreview(
+            image = image,
+            onOpenViewer = onOpenViewer,
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
-            contentAlignment = Alignment.Center
+                .height(260.dp)
+                .padding(horizontal = 8.dp)
         ) {
-            AsyncImage(
-                model = image.uri,
-                contentDescription = image.fileName,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(8.dp)
-                    .clickable(onClick = onOpenViewer)
-            )
             if (canGoPrev) {
                 NavArrow("‹", onPrev, Modifier.align(Alignment.CenterStart))
             }
@@ -166,6 +163,7 @@ fun DetailScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
@@ -355,6 +353,115 @@ fun DetailScreen(
                 showAddTag = false
             }
         )
+    }
+}
+
+private enum class PreviewMode {
+    Fit,
+    Tall,
+    Panorama
+}
+
+@Composable
+private fun SmartImagePreview(
+    image: ImageEntity,
+    onOpenViewer: () -> Unit,
+    modifier: Modifier = Modifier,
+    controls: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit
+) {
+    val width = image.width.coerceAtLeast(1)
+    val height = image.height.coerceAtLeast(1)
+    val aspect = width.toFloat() / height
+    val mode = when {
+        height.toFloat() / width >= 1.8f -> PreviewMode.Tall
+        aspect >= 2f -> PreviewMode.Panorama
+        else -> PreviewMode.Fit
+    }
+    val verticalState = rememberScrollState()
+    val horizontalState = rememberScrollState()
+
+    LaunchedEffect(image.id) {
+        verticalState.scrollTo(0)
+        horizontalState.scrollTo(0)
+    }
+
+    BoxWithConstraints(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow),
+        contentAlignment = Alignment.Center
+    ) {
+        val viewportWidth = maxWidth
+        val viewportHeight = maxHeight
+        when (mode) {
+            PreviewMode.Tall -> {
+                val renderedHeight = viewportWidth * (height.toFloat() / width)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(verticalState)
+                        .clickable(onClick = onOpenViewer)
+                ) {
+                    AsyncImage(
+                        model = image.uri,
+                        contentDescription = image.fileName,
+                        contentScale = ContentScale.FillBounds,
+                        modifier = Modifier
+                            .width(viewportWidth)
+                            .height(renderedHeight)
+                    )
+                }
+            }
+            PreviewMode.Panorama -> {
+                val renderedWidth = viewportHeight * aspect
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .horizontalScroll(horizontalState)
+                        .clickable(onClick = onOpenViewer)
+                ) {
+                    AsyncImage(
+                        model = image.uri,
+                        contentDescription = image.fileName,
+                        contentScale = ContentScale.FillBounds,
+                        modifier = Modifier
+                            .width(renderedWidth)
+                            .height(viewportHeight)
+                    )
+                }
+            }
+            PreviewMode.Fit -> {
+                AsyncImage(
+                    model = image.uri,
+                    contentDescription = image.fileName,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp)
+                        .clickable(onClick = onOpenViewer)
+                )
+            }
+        }
+
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = Color.Black.copy(alpha = 0.58f),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(10.dp)
+        ) {
+            Text(
+                text = when (mode) {
+                    PreviewMode.Tall -> "长图 · 上下滑动"
+                    PreviewMode.Panorama -> "全景 · 左右滑动"
+                    PreviewMode.Fit -> "点击查看原图"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+            )
+        }
+        controls()
     }
 }
 

@@ -2,6 +2,7 @@ package com.pixvault.ui.screen
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -64,10 +65,42 @@ fun SimilarCleanupScreen(repository: ImageRepository, onBack: () -> Unit) {
             ) { Text("清理 ${selectedIds.size}") }
         }
         when (val value = groups) {
-            null -> MascotLoading(modifier = Modifier.fillMaxWidth())
+            null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                MascotLoading(modifier = Modifier.size(180.dp))
+            }
             emptyList<List<Pair<ImageEntity, Float>>>() ->
                 MascotEmptyState(message = "没有发现需要整理的相似照片")
             else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                item {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            MascotExpression(
+                                mood = MascotMood.Surprised,
+                                modifier = Modifier.size(72.dp)
+                            )
+                            Column(modifier = Modifier.padding(start = 12.dp)) {
+                                Text(
+                                    "发现 ${value.size} 组相似照片",
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    "确认后再清理，我会保留每组第一张",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
                 items(value.size) { groupIndex ->
                     val group = value[groupIndex]
                     Surface(

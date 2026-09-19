@@ -95,12 +95,21 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surfaceVariant
         ) {
-            Image(
-                painter = painterResource(R.drawable.onboarding_local_ai),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+            Box(contentAlignment = Alignment.Center) {
+                if (pageIndex == 0) {
+                    MascotExpression(
+                        mood = MascotMood.Welcome,
+                        modifier = Modifier.size(220.dp)
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(R.drawable.onboarding_local_ai),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(28.dp))

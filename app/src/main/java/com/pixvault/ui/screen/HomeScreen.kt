@@ -448,6 +448,7 @@ fun HomeScreen(
         }
 
         if (controlsExpanded && semanticLoading) {
+            InlineMascotStatus("正在理解你的描述并匹配图片")
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
         if (controlsExpanded && semanticMode && semanticMessage.isNotEmpty()) {
@@ -512,6 +513,7 @@ fun HomeScreen(
         }
 
         if (importing) {
+            InlineMascotStatus("正在导入并建立本地图片特征")
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
         if (message.isNotEmpty()) {
@@ -680,16 +682,47 @@ private fun AiMascotBanner(
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
-            Image(
-                painter = painterResource(R.drawable.empty_gallery_anime),
-                contentDescription = "今日图库助手",
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .size(120.dp)
-                    .padding(end = 2.dp),
-                contentScale = ContentScale.Fit
-            )
+            if (semanticMode) {
+                MascotExpression(
+                    mood = MascotMood.Thinking,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(100.dp)
+                        .padding(end = 4.dp)
+                )
+            } else {
+                Image(
+                    painter = painterResource(R.drawable.empty_gallery_anime),
+                    contentDescription = "今日图库助手",
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(120.dp)
+                        .padding(end = 2.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun InlineMascotStatus(message: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        MascotExpression(
+            mood = MascotMood.Working,
+            modifier = Modifier.size(54.dp)
+        )
+        Text(
+            message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 10.dp)
+        )
     }
 }
 
