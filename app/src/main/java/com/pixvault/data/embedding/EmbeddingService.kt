@@ -23,6 +23,7 @@ class EmbeddingService(private val context: Context) {
     private var tokenizer: ClipTokenizer? = null
 
     private val textLoadMutex = Mutex()
+    private val imageLoadMutex = Mutex()
 
     fun isLoaded(): Boolean = encoder != null
 
@@ -30,8 +31,11 @@ class EmbeddingService(private val context: Context) {
 
     suspend fun ensureLoaded(onProgress: (String) -> Unit) {
         if (encoder != null) return
-        withContext(Dispatchers.IO) {
-            encoder = ClipImageEncoder.fromAssets(context, "image-encoder.onnx", onProgress)
+        imageLoadMutex.withLock {
+            if (encoder != null) return
+            withContext(Dispatchers.IO) {
+                encoder = ClipImageEncoder.fromAssets(context, "image-encoder.onnx", onProgress)
+            }
         }
     }
 

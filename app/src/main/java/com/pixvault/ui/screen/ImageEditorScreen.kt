@@ -124,7 +124,7 @@ fun ImageEditorScreen(
     var aspectChoice by remember { mutableStateOf(AspectChoice("自由", null)) }
 
     var strokes by remember { mutableStateOf<List<ImageProcessor.Stroke>>(emptyList()) }
-    var currentStroke by remember { mutableStateOf<MutableList<PointF>?>(null) }
+    var currentStroke by remember { mutableStateOf<List<PointF>?>(null) }
     var brushColor by remember { mutableStateOf(Color.Red) }
     var brushWidthRatio by remember { mutableStateOf(0.01f) }
 
@@ -577,12 +577,12 @@ fun ImageEditorScreen(
                 }
                 EditMode.DRAW -> Modifier.pointerInput(Unit) {
                     detectDragGestures(
-                        onDragStart = { pos -> currentStroke = mutableListOf(toNormalized(pos)) },
+                        onDragStart = { pos -> currentStroke = listOf(toNormalized(pos)) },
                         onDragEnd = { commitStroke() },
                         onDragCancel = { currentStroke = null },
                         onDrag = { change, _ ->
                             change.consume()
-                            currentStroke?.add(toNormalized(change.position))
+                            currentStroke = currentStroke.orEmpty() + toNormalized(change.position)
                         }
                     )
                 }

@@ -21,6 +21,7 @@ object VectorUtils {
     }
 
     fun dot(a: FloatArray, b: FloatArray): Float {
+        require(a.size == b.size) { "vector dimensions must match" }
         var sum = 0f
         for (i in a.indices) sum += a[i] * b[i]
         return sum
@@ -34,6 +35,7 @@ object VectorUtils {
     }
 
     fun cosine(a: FloatArray, b: FloatArray): Float {
+        require(a.size == b.size) { "vector dimensions must match" }
         val dot = dot(a, b)
         var normA = 0f
         var normB = 0f
@@ -48,6 +50,7 @@ object VectorUtils {
     fun mean(vectors: List<FloatArray>): FloatArray {
         require(vectors.isNotEmpty()) { "cannot average empty vector list" }
         val dim = vectors[0].size
+        require(vectors.all { it.size == dim }) { "vector dimensions must match" }
         val result = FloatArray(dim)
         for (v in vectors) {
             for (i in 0 until dim) result[i] += v[i]

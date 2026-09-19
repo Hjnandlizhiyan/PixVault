@@ -24,15 +24,15 @@ class ClipTextEncoder private constructor(
             LongBuffer.wrap(ids),
             longArrayOf(1, ids.size.toLong())
         )
-        val output = session.run(mapOf(inputName to inputTensor)).use { result ->
-            val tensor = result.get(outputName).get() as OnnxTensor
-            val buffer = tensor.floatBuffer
-            val arr = FloatArray(buffer.remaining())
-            buffer.get(arr)
-            arr
+        return try {
+            session.run(mapOf(inputName to inputTensor)).use { result ->
+                val tensor = result.get(outputName).get() as OnnxTensor
+                val buffer = tensor.floatBuffer
+                FloatArray(buffer.remaining()).also(buffer::get)
+            }
+        } finally {
+            inputTensor.close()
         }
-        inputTensor.close()
-        return output
     }
 
     fun encodeNormalized(text: String): FloatArray {

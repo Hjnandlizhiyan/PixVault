@@ -13,8 +13,8 @@ import com.pixvault.data.db.entity.TagEntity
 
 @Database(
     entities = [ImageEntity::class, TagEntity::class, ImageTagEntity::class],
-    version = 3,
-    exportSchema = false
+    version = 4,
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun imageDao(): ImageDao
@@ -25,6 +25,16 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE images ADD COLUMN deletedTime INTEGER")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE images ADD COLUMN contentHash TEXT")
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_images_contentHash " +
+                        "ON images(contentHash)"
+                )
             }
         }
     }

@@ -16,6 +16,8 @@ import com.pixvault.data.db.entity.TagWithCount
 import com.pixvault.data.importer.ImageImporter
 import com.pixvault.data.repository.ImageRepository
 import com.pixvault.data.repository.TagRepository
+import com.pixvault.data.storage.StoredImageFileManager
+import java.io.File
 import com.pixvault.ui.screen.DetailScreen
 import com.pixvault.ui.screen.FavoritesScreen
 import com.pixvault.ui.screen.FolderImagesScreen
@@ -80,7 +82,12 @@ fun PixVaultRoot(
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as PixVaultApp
-    val repository = remember { ImageRepository(app.database) }
+    val repository = remember {
+        ImageRepository(
+            app.database,
+            StoredImageFileManager(File(context.filesDir, "images"))
+        )
+    }
     val tagRepository = remember { TagRepository(app.database) }
     val importer = remember { ImageImporter(context) }
 

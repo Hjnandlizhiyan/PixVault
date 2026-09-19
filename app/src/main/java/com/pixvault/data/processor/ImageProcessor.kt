@@ -68,7 +68,9 @@ class ImageProcessor(private val context: Context) {
     )
 
     suspend fun process(request: Request, quality: Int): Result = withContext(Dispatchers.IO) {
-        var bitmap = decodeSampled(request.sourcePath) ?: error("无法解码图片")
+        // Editing previews are sampled in the UI, but final rendering must use the
+        // original pixels. Otherwise overwriting a modern photo silently shrinks it.
+        var bitmap = decodeOriginal(request.sourcePath) ?: error("无法解码图片")
 
         request.cropRect?.let { rect ->
             val left = (rect.left * bitmap.width).toInt().coerceIn(0, bitmap.width)
@@ -191,15 +193,10 @@ class ImageProcessor(private val context: Context) {
         }
     }
 
-    private fun decodeSampled(path: String): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(path, bounds)
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-        val maxDim = maxOf(bounds.outWidth, bounds.outHeight)
-        var sample = 1
-        while (maxDim / sample > 2048) sample *= 2
-        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
-        return BitmapFactory.decodeFile(path, opts)
+    private fun decodeOriginal(path: String): Bitmap? = try {
+        BitmapFactory.decodeFile(path)
+    } catch (_: OutOfMemoryError) {
+        throw IllegalStateException("原图分辨率过高，设备内存不足，已取消保存以保护原图")
     }
 
     private fun detectFormat(path: String): Bitmap.CompressFormat {

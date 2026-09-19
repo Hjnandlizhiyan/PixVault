@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.pixvault.data.db.entity.ImageEntity
+import com.pixvault.data.util.Hashing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -36,8 +37,8 @@ class ImageImporter(private val context: Context) {
 
             val dest = File(imagesDir, "${UUID.randomUUID()}${extensionFor(mimeType)}")
 
-            resolver.openInputStream(uri)?.use { input ->
-                dest.outputStream().use { output -> input.copyTo(output) }
+            val contentHash = resolver.openInputStream(uri)?.use { input ->
+                dest.outputStream().use { output -> Hashing.copyAndSha256(input, output) }
             } ?: return null
 
             val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -54,7 +55,8 @@ class ImageImporter(private val context: Context) {
                 mimeType = mimeType,
                 createdTime = now,
                 modifiedTime = now,
-                hasAlpha = mimeType == "image/png" || mimeType == "image/webp"
+                hasAlpha = mimeType == "image/png" || mimeType == "image/webp",
+                contentHash = contentHash
             )
         } catch (e: Exception) {
             null

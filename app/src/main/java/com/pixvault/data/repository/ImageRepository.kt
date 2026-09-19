@@ -3,10 +3,15 @@ package com.pixvault.data.repository
 import com.pixvault.data.db.AppDatabase
 import com.pixvault.data.db.entity.ImageEntity
 import com.pixvault.data.processor.ImageProcessor
+import com.pixvault.data.storage.StoredImageFileManager
 import com.pixvault.data.util.VectorUtils
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 
-class ImageRepository(private val database: AppDatabase) {
+class ImageRepository(
+    private val database: AppDatabase,
+    private val storedImageFiles: StoredImageFileManager
+) {
     private val imageDao = database.imageDao()
     private val imageTagDao = database.imageTagDao()
 
@@ -21,7 +26,11 @@ class ImageRepository(private val database: AppDatabase) {
     suspend fun count(): Int = imageDao.count()
 
     suspend fun insertAll(images: List<ImageEntity>): List<Long> {
-        return imageDao.insertAll(images)
+        val ids = imageDao.insertAll(images)
+        images.zip(ids).forEach { (image, id) ->
+            if (id == -1L) storedImageFiles.delete(image)
+        }
+        return ids
     }
 
     suspend fun updateEmbedding(id: Long, embedding: FloatArray) {
@@ -57,18 +66,31 @@ class ImageRepository(private val database: AppDatabase) {
     }
 
     suspend fun permanentlyDelete(id: Long) {
-        imageTagDao.deleteByImage(id)
-        imageDao.delete(id)
+        val image = imageDao.getByIdIncludingTrashed(id) ?: return
+        database.withTransaction {
+            imageTagDao.deleteByImage(id)
+            imageDao.delete(id)
+        }
+        storedImageFiles.delete(image)
     }
 
     suspend fun permanentlyDeleteAll(ids: List<Long>) {
-        imageTagDao.deleteByImages(ids)
-        imageDao.deleteAll(ids)
+        if (ids.isEmpty()) return
+        val images = imageDao.getByIdsIncludingTrashed(ids)
+        database.withTransaction {
+            imageTagDao.deleteByImages(ids)
+            imageDao.deleteAll(ids)
+        }
+        images.forEach(storedImageFiles::delete)
     }
 
     suspend fun emptyTrash() {
-        imageTagDao.deleteForTrashed()
-        imageDao.deleteAllTrashed()
+        val images = imageDao.getAllTrashed()
+        database.withTransaction {
+            imageTagDao.deleteForTrashed()
+            imageDao.deleteAllTrashed()
+        }
+        images.forEach(storedImageFiles::delete)
     }
 
     suspend fun updateFavoriteAll(ids: List<Long>, favorite: Boolean) {

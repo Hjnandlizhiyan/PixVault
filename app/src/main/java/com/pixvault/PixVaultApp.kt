@@ -9,8 +9,7 @@ import com.pixvault.data.processor.ImageProcessor
 class PixVaultApp : Application() {
     val database: AppDatabase by lazy {
         Room.databaseBuilder(this, AppDatabase::class.java, "pixvault.db")
-            .addMigrations(AppDatabase.MIGRATION_2_3)
-            .fallbackToDestructiveMigration(dropAllTables = true)
+            .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4)
             .build()
     }
 

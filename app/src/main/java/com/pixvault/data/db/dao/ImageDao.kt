@@ -24,6 +24,12 @@ interface ImageDao {
     @Query("SELECT * FROM images WHERE id IN (:ids) AND deletedTime IS NULL")
     suspend fun getByIds(ids: List<Long>): List<ImageEntity>
 
+    @Query("SELECT * FROM images WHERE id IN (:ids)")
+    suspend fun getByIdsIncludingTrashed(ids: List<Long>): List<ImageEntity>
+
+    @Query("SELECT * FROM images WHERE deletedTime IS NOT NULL")
+    suspend fun getAllTrashed(): List<ImageEntity>
+
     @Query(
         "SELECT i.* FROM images i INNER JOIN image_tags it ON i.id = it.imageId " +
             "WHERE it.tagId = :tagId AND i.deletedTime IS NULL ORDER BY i.modifiedTime DESC"
@@ -36,7 +42,7 @@ interface ImageDao {
     @Query("SELECT * FROM images WHERE embedding IS NOT NULL AND deletedTime IS NULL")
     suspend fun getAllWithEmbedding(): List<ImageEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(images: List<ImageEntity>): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

@@ -40,9 +40,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,6 +61,10 @@ import com.pixvault.data.repository.TagRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private enum class GallerySort(val label: String) {
+    Newest("最新"), Oldest("最早"), Name("名称"), Size("大小")
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -86,17 +92,37 @@ fun HomeScreen(
     var semanticResults by remember { mutableStateOf<List<ImageEntity>?>(null) }
     var semanticLoading by remember { mutableStateOf(false) }
     var semanticMessage by remember { mutableStateOf("") }
+    var sortModeName by rememberSaveable { mutableStateOf(GallerySort.Newest.name) }
+    var gridColumns by rememberSaveable { mutableIntStateOf(3) }
+    val sortMode = GallerySort.valueOf(sortModeName)
     val scope = rememberCoroutineScope()
 
     val tagNamesByImage = remember(imageTagNames) {
         imageTagNames.groupBy { it.imageId }.mapValues { e -> e.value.map { it.tagName }.toSet() }
     }
 
-    val displayedImages = remember(images, tagNamesByImage, searchQuery, semanticMode, semanticResults) {
-        if (semanticMode) {
+    val displayedImages = remember(
+        images,
+        tagNamesByImage,
+        searchQuery,
+        semanticMode,
+        semanticResults,
+        sortMode
+    ) {
+        val filtered = if (semanticMode) {
             semanticResults ?: images
         } else {
             filterImages(images, tagNamesByImage, searchQuery)
+        }
+        if (semanticMode && semanticResults != null) {
+            filtered // Keep relevance order for semantic results.
+        } else {
+            when (sortMode) {
+                GallerySort.Newest -> filtered.sortedByDescending { it.modifiedTime }
+                GallerySort.Oldest -> filtered.sortedBy { it.modifiedTime }
+                GallerySort.Name -> filtered.sortedBy { it.fileName.lowercase() }
+                GallerySort.Size -> filtered.sortedByDescending { it.fileSize }
+            }
         }
     }
 
@@ -137,11 +163,12 @@ fun HomeScreen(
             val pairs = withContext(Dispatchers.IO) {
                 val entities = importer.import(uris)
                 val ids = repository.insertAll(entities)
+                val insertedIds = ids.filter { it > 0 }
                 for (tagId in tagIds) {
-                    tagRepository.addTagToImages(ids, tagId)
+                    tagRepository.addTagToImages(insertedIds, tagId)
                 }
                 entities.zip(ids).mapNotNull { (entity, id) ->
-                    entity.path?.let { path -> id to path }
+                    if (id <= 0) null else entity.path?.let { path -> id to path }
                 }
             }
             if (pairs.isNotEmpty()) {
@@ -157,7 +184,12 @@ fun HomeScreen(
                     message = "计算特征 $done/${pairs.size}"
                 }
             }
-            message = "已导入 ${pairs.size} 张"
+            val skipped = (uris.size - pairs.size).coerceAtLeast(0)
+            message = if (skipped == 0) {
+                "已导入 ${pairs.size} 张"
+            } else {
+                "已导入 ${pairs.size} 张，跳过 $skipped 张重复或无效图片"
+            }
             importing = false
         }
     }
@@ -311,6 +343,34 @@ fun HomeScreen(
             }
         }
 
+        if (!semanticMode) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = {
+                        val values = GallerySort.entries
+                        sortModeName = values[(sortMode.ordinal + 1) % values.size].name
+                    }
+                ) {
+                    Text("排序：${sortMode.label}")
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                TextButton(
+                    onClick = { gridColumns = (gridColumns - 1).coerceAtLeast(2) },
+                    enabled = gridColumns > 2
+                ) { Text("放大") }
+                Text("${gridColumns} 列", style = MaterialTheme.typography.bodySmall)
+                TextButton(
+                    onClick = { gridColumns = (gridColumns + 1).coerceAtMost(5) },
+                    enabled = gridColumns < 5
+                ) { Text("缩小") }
+            }
+        }
+
         if (semanticLoading) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
@@ -385,7 +445,7 @@ fun HomeScreen(
             }
             else -> {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    columns = GridCells.Fixed(gridColumns),
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(4.dp)
                 ) {

@@ -26,15 +26,15 @@ class ClipImageEncoder private constructor(
             preprocess(bitmap),
             longArrayOf(1, 3, inputHeight.toLong(), inputWidth.toLong())
         )
-        val output = session.run(mapOf(inputName to inputTensor)).use { result ->
-            val tensor = result.get(outputName).get() as OnnxTensor
-            val buffer = tensor.floatBuffer
-            val arr = FloatArray(buffer.remaining())
-            buffer.get(arr)
-            arr
+        return try {
+            session.run(mapOf(inputName to inputTensor)).use { result ->
+                val tensor = result.get(outputName).get() as OnnxTensor
+                val buffer = tensor.floatBuffer
+                FloatArray(buffer.remaining()).also(buffer::get)
+            }
+        } finally {
+            inputTensor.close()
         }
-        inputTensor.close()
-        return output
     }
 
     fun encodeNormalized(bitmap: Bitmap): FloatArray {
@@ -53,16 +53,19 @@ class ClipImageEncoder private constructor(
         val pixelCount = inputWidth * inputHeight
         val data = FloatArray(3 * pixelCount)
         val pixels = IntArray(pixelCount)
-        resized.getPixels(pixels, 0, inputWidth, 0, 0, inputWidth, inputHeight)
-
-        for (i in 0 until pixelCount) {
-            val p = pixels[i]
-            val r = ((p shr 16) and 0xFF) / 255f
-            val g = ((p shr 8) and 0xFF) / 255f
-            val b = (p and 0xFF) / 255f
-            data[i] = (r - MEAN[0]) / STD[0]
-            data[pixelCount + i] = (g - MEAN[1]) / STD[1]
-            data[2 * pixelCount + i] = (b - MEAN[2]) / STD[2]
+        try {
+            resized.getPixels(pixels, 0, inputWidth, 0, 0, inputWidth, inputHeight)
+            for (i in 0 until pixelCount) {
+                val p = pixels[i]
+                val r = ((p shr 16) and 0xFF) / 255f
+                val g = ((p shr 8) and 0xFF) / 255f
+                val b = (p and 0xFF) / 255f
+                data[i] = (r - MEAN[0]) / STD[0]
+                data[pixelCount + i] = (g - MEAN[1]) / STD[1]
+                data[2 * pixelCount + i] = (b - MEAN[2]) / STD[2]
+            }
+        } finally {
+            if (resized !== bitmap) resized.recycle()
         }
         return FloatBuffer.wrap(data)
     }
@@ -103,7 +106,7 @@ class ClipImageEncoder private constructor(
 
         private fun copyAssetToCache(context: Context, assetName: String): File {
             val target = File(context.filesDir, "$assetName.cache")
-            if (target.exists()) target.delete()
+            if (target.exists() && target.length() > 0) return target
             context.assets.open(assetName).use { input ->
                 FileOutputStream(target).use { output -> input.copyTo(output) }
             }
