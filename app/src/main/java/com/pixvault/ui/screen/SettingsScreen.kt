@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,6 +50,7 @@ fun SettingsScreen(
     onOpenTrash: () -> Unit,
     onOpenGroupBuy: () -> Unit
 ) {
+    val uriHandler = LocalUriHandler.current
     var showQr by remember { mutableStateOf(false) }
     var showMoods by remember { mutableStateOf(false) }
     Column(
@@ -143,6 +145,13 @@ fun SettingsScreen(
         }
 
         SettingsGroup("帮助", R.drawable.ic_nav_gallery) {
+            SettingActionRow(
+                title = "访问 GitHub 项目",
+                subtitle = "查看源码、版本更新与问题反馈",
+                onClick = {
+                    uriHandler.openUri("https://github.com/Hjnandlizhiyan/PixVault")
+                }
+            )
             SettingActionRow(
                 title = "重新查看新手指引",
                 subtitle = "导入、整理、本地 AI 与隐私说明",
