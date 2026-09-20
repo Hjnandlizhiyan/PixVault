@@ -4,8 +4,11 @@ import android.view.WindowManager
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,6 +21,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -31,7 +35,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -143,7 +149,11 @@ fun PrivateSpaceScreen(
             Column {
                 Text("私密空间", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    "${privateImages.size} 张 · 点击选择",
+                    if (selectedIds.isEmpty()) {
+                        "${privateImages.size} 张 · 点击选择"
+                    } else {
+                        "已选 ${selectedIds.size} / ${privateImages.size} 张"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -156,7 +166,11 @@ fun PrivateSpaceScreen(
                         selectedIds = emptySet()
                     }
                 }
-            ) { Text("移出私密") }
+            ) {
+                Text(
+                    if (selectedIds.isEmpty()) "移出私密" else "移出（${selectedIds.size}）"
+                )
+            }
         }
         if (privateImages.isEmpty()) {
             MascotEmptyState(message = "在首页多选照片，点击「私密」即可移入")
@@ -166,23 +180,60 @@ fun PrivateSpaceScreen(
                 contentPadding = PaddingValues(4.dp)
             ) {
                 items(privateImages, key = { it.id }) { image ->
-                    AsyncImage(
-                        model = image.uri,
-                        contentDescription = image.fileName,
-                        contentScale = ContentScale.Crop,
+                    val selected = image.id in selectedIds
+                    Box(
                         modifier = Modifier
                             .padding(2.dp)
                             .fillMaxWidth()
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(10.dp))
+                            .then(
+                                if (selected) {
+                                    Modifier.border(
+                                        3.dp,
+                                        MaterialTheme.colorScheme.primary,
+                                        RoundedCornerShape(10.dp)
+                                    )
+                                } else {
+                                    Modifier
+                                }
+                            )
                             .clickable {
-                                selectedIds = if (image.id in selectedIds) {
+                                selectedIds = if (selected) {
                                     selectedIds - image.id
                                 } else {
                                     selectedIds + image.id
                                 }
                             }
-                    )
+                    ) {
+                        AsyncImage(
+                            model = image.uri,
+                            contentDescription = image.fileName,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        if (selected) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.22f))
+                            )
+                            Surface(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(7.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary
+                            ) {
+                                Text(
+                                    "✓",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

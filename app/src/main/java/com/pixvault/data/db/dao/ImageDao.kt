@@ -12,6 +12,13 @@ interface ImageDao {
     @Query("SELECT * FROM images WHERE deletedTime IS NULL AND isPrivate = 0 ORDER BY COALESCE(dateTaken, modifiedTime) DESC")
     fun observeAll(): Flow<List<ImageEntity>>
 
+    @Query(
+        "SELECT * FROM images i WHERE i.deletedTime IS NULL AND i.isPrivate = 0 " +
+            "AND NOT EXISTS (SELECT 1 FROM image_tags it WHERE it.imageId = i.id) " +
+            "ORDER BY COALESCE(i.dateTaken, i.modifiedTime) DESC"
+    )
+    fun observeUntagged(): Flow<List<ImageEntity>>
+
     @Query("SELECT * FROM images WHERE deletedTime IS NULL AND isPrivate = 1 ORDER BY COALESCE(dateTaken, modifiedTime) DESC")
     fun observePrivate(): Flow<List<ImageEntity>>
 

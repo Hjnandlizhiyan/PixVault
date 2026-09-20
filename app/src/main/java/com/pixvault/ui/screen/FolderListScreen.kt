@@ -40,10 +40,12 @@ fun FolderListScreen(
     onBack: () -> Unit,
     onOpenFolder: (TagWithCount) -> Unit,
     onOpenFavorites: () -> Unit,
+    onOpenUntagged: () -> Unit,
     onOpenTrash: () -> Unit
 ) {
     val tags by tagRepository.observeTagsWithCount().collectAsState(initial = emptyList())
     val favorites by imageRepository.observeFavorites().collectAsState(initial = emptyList())
+    val untagged by imageRepository.observeUntaggedImages().collectAsState(initial = emptyList())
     val trashed by imageRepository.observeTrash().collectAsState(initial = emptyList())
     var pendingDelete by remember { mutableStateOf<TagWithCount?>(null) }
     val scope = rememberCoroutineScope()
@@ -71,6 +73,16 @@ fun FolderListScreen(
                     count = favorites.size,
                     tint = MaterialTheme.colorScheme.primary,
                     onClick = onOpenFavorites
+                )
+                HorizontalDivider()
+            }
+            item(key = "untagged") {
+                NavRow(
+                    icon = "◇",
+                    label = "未分类",
+                    count = untagged.size,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    onClick = onOpenUntagged
                 )
                 HorizontalDivider()
             }

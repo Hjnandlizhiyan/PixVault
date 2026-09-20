@@ -50,6 +50,7 @@ import com.pixvault.ui.screen.SimilarImagesScreen
 import com.pixvault.ui.screen.TagManagerScreen
 import com.pixvault.ui.screen.TimelineScreen
 import com.pixvault.ui.screen.TrashScreen
+import com.pixvault.ui.screen.UntaggedImagesScreen
 import com.pixvault.ui.theme.PixVaultTheme
 import com.pixvault.ui.theme.ThemeMode
 
@@ -103,6 +104,7 @@ private sealed interface Screen {
     data object FolderList : Screen
     data class FolderImages(val tag: TagWithCount) : Screen
     data object Favorites : Screen
+    data object Untagged : Screen
     data object Trash : Screen
     data object Settings : Screen
     data object PhotoMap : Screen
@@ -205,6 +207,7 @@ fun PixVaultRoot(
             onBack = { screen = Screen.Home },
             onOpenFolder = { tag -> screen = Screen.FolderImages(tag) },
             onOpenFavorites = { screen = Screen.Favorites },
+            onOpenUntagged = { screen = Screen.Untagged },
             onOpenTrash = { screen = Screen.Trash }
         )
         is Screen.FolderImages -> FolderImagesScreen(
@@ -214,6 +217,11 @@ fun PixVaultRoot(
             onImageClick = { images, index -> screen = Screen.Detail(images, index) }
         )
         Screen.Favorites -> FavoritesScreen(
+            imageRepository = repository,
+            onBack = { screen = Screen.FolderList },
+            onImageClick = { images, index -> screen = Screen.Detail(images, index) }
+        )
+        Screen.Untagged -> UntaggedImagesScreen(
             imageRepository = repository,
             onBack = { screen = Screen.FolderList },
             onImageClick = { images, index -> screen = Screen.Detail(images, index) }

@@ -18,6 +18,8 @@ class ImageRepository(
 
     fun observeImages(): Flow<List<ImageEntity>> = imageDao.observeAll()
 
+    fun observeUntaggedImages(): Flow<List<ImageEntity>> = imageDao.observeUntagged()
+
     fun observePrivateImages(): Flow<List<ImageEntity>> = imageDao.observePrivate()
 
     fun observeLocatedImages(): Flow<List<ImageEntity>> = imageDao.observeLocated()
@@ -193,7 +195,11 @@ class ImageRepository(
             val sim = VectorUtils.cosine(queryVector, VectorUtils.toFloatArray(emb))
             result.add(img to sim)
         }
-        return result.sortedByDescending { it.second }.take(limit)
+        val ranked = result.sortedByDescending { it.second }
+        val bestScore = ranked.firstOrNull()?.second ?: return emptyList()
+        if (bestScore < 0.18f) return emptyList()
+        val relevanceFloor = maxOf(0.18f, bestScore - 0.05f)
+        return ranked.filter { it.second >= relevanceFloor }.take(limit.coerceAtMost(24))
     }
 
     suspend fun findSimilarGroups(

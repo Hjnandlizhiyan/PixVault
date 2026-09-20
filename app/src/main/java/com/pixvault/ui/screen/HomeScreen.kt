@@ -68,6 +68,7 @@ import com.pixvault.data.embedding.EmbeddingService
 import com.pixvault.data.importer.ImageImporter
 import com.pixvault.data.repository.ImageRepository
 import com.pixvault.data.repository.TagRepository
+import com.pixvault.data.util.SemanticQueryTranslator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -120,7 +121,7 @@ fun HomeScreen(
         sortMode
     ) {
         val filtered = if (semanticMode) {
-            semanticResults ?: images
+            semanticResults ?: emptyList()
         } else {
             filterImages(images, tagNamesByImage, searchQuery)
         }
@@ -144,17 +145,26 @@ fun HomeScreen(
             scope.launch {
                 semanticLoading = true
                 try {
+                    val normalized = SemanticQueryTranslator.normalize(query)
                     embeddingService.ensureTextLoaded { msg -> semanticMessage = msg }
-                    semanticMessage = "正在语义检索..."
-                    val vector = embeddingService.embedText(query)
+                    semanticMessage = if (normalized.translated) {
+                        "正在理解中文：${normalized.encoderText}"
+                    } else {
+                        "正在语义检索..."
+                    }
+                    val vector = embeddingService.embedText(normalized.encoderText)
                     val results = withContext(Dispatchers.IO) {
                         repository.searchByText(vector, 60)
                     }
                     semanticResults = results.map { it.first }
                     semanticMessage = if (results.isEmpty()) {
-                        "没有找到相关图片，请先为图片计算特征"
+                        "没有找到足够相关的图片，换个描述试试"
                     } else {
-                        "按相似度找到 ${results.size} 张图片"
+                        if (normalized.translated) {
+                            "已理解为「${normalized.encoderText}」，找到 ${results.size} 张"
+                        } else {
+                            "按相似度找到 ${results.size} 张图片"
+                        }
                     }
                 } catch (e: Exception) {
                     semanticResults = emptyList()
@@ -365,7 +375,13 @@ fun HomeScreen(
 
             OutlinedTextField(
                 value = searchQuery,
-                onValueChange = { searchQuery = it },
+                onValueChange = {
+                    searchQuery = it
+                    if (semanticMode) {
+                        semanticResults = null
+                        semanticMessage = ""
+                    }
+                },
                 singleLine = true,
                 placeholder = {
                     Text(if (semanticMode) "描述画面，如：海边的日落" else "搜索文件名或 #标签")
@@ -552,6 +568,9 @@ fun HomeScreen(
                         )
                     }
                 }
+            }
+            semanticMode && semanticResults == null -> {
+                MascotEmptyState(message = "输入画面描述后点击「搜索」，支持中英文")
             }
             displayedImages.isEmpty() -> {
                 MascotEmptyState(message = "没有找到匹配的图片，换个关键词试试吧")
