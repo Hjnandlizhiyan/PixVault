@@ -37,6 +37,9 @@ interface ImageDao {
     @Query("SELECT * FROM images WHERE id = :id")
     suspend fun getByIdIncludingTrashed(id: Long): ImageEntity?
 
+    @Query("SELECT * FROM images WHERE contentHash = :contentHash LIMIT 1")
+    suspend fun getByContentHash(contentHash: String): ImageEntity?
+
     @Query("SELECT * FROM images WHERE id IN (:ids) AND deletedTime IS NULL")
     suspend fun getByIds(ids: List<Long>): List<ImageEntity>
 

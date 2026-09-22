@@ -1,9 +1,16 @@
 package com.pixvault.ui.screen
 
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,6 +46,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -58,6 +66,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -77,6 +86,27 @@ private enum class GallerySort(val label: String) {
     Newest("最新"), Oldest("最早"), Name("名称"), Size("大小")
 }
 
+private const val PHOTO_PICKER_LOCATION_ACCESS_EXTRA =
+    "android.provider.extra.REQUEST_LOCATION_METADATA_ACCESS"
+
+private class LocationAwarePickMultipleVisualMedia :
+    ActivityResultContracts.PickMultipleVisualMedia() {
+    override fun createIntent(context: Context, input: PickVisualMediaRequest): Intent {
+        return super.createIntent(context, input).apply {
+            if (action == MediaStore.ACTION_PICK_IMAGES) {
+                putExtra(PHOTO_PICKER_LOCATION_ACCESS_EXTRA, true)
+            }
+        }
+    }
+}
+
+private data class ImportBatchResult(
+    val embeddingPairs: List<Pair<Long, String>>,
+    val insertedCount: Int,
+    val locatedCount: Int,
+    val refreshedLocationCount: Int
+)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(
@@ -88,11 +118,14 @@ fun HomeScreen(
     onManageTags: () -> Unit,
     onOpenFolders: () -> Unit
 ) {
+    val context = LocalContext.current
     val images by repository.observeImages().collectAsState(initial = emptyList())
     val imageTagNames by tagRepository.observeImageTagNames().collectAsState(initial = emptyList())
     var importing by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
     var pendingUris by remember { mutableStateOf<List<Uri>?>(null) }
+    var showImportSourceDialog by remember { mutableStateOf(false) }
+    var showMediaLocationRationale by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var selectionMode by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(setOf<Long>()) }
@@ -180,17 +213,28 @@ fun HomeScreen(
         scope.launch {
             importing = true
             message = "正在导入..."
-            val pairs = withContext(Dispatchers.IO) {
+            val result = withContext(Dispatchers.IO) {
                 val entities = importer.import(uris)
                 val ids = repository.insertAll(entities)
                 val insertedIds = ids.filter { it > 0 }
                 for (tagId in tagIds) {
                     tagRepository.addTagToImages(insertedIds, tagId)
                 }
-                entities.zip(ids).mapNotNull { (entity, id) ->
+                val embeddingPairs = entities.zip(ids).mapNotNull { (entity, id) ->
                     if (id <= 0) null else entity.path?.let { path -> id to path }
                 }
+                ImportBatchResult(
+                    embeddingPairs = embeddingPairs,
+                    insertedCount = insertedIds.size,
+                    locatedCount = entities.zip(ids).count { (entity, id) ->
+                        id > 0 && entity.latitude != null && entity.longitude != null
+                    },
+                    refreshedLocationCount = entities.zip(ids).count { (entity, id) ->
+                        id <= 0 && entity.latitude != null && entity.longitude != null
+                    }
+                )
             }
+            val pairs = result.embeddingPairs
             if (pairs.isNotEmpty()) {
                 embeddingService.ensureLoaded { msg -> message = msg }
                 var done = 0
@@ -204,21 +248,72 @@ fun HomeScreen(
                     message = "计算特征 $done/${pairs.size}"
                 }
             }
-            val skipped = (uris.size - pairs.size).coerceAtLeast(0)
-            message = if (skipped == 0) {
-                "已导入 ${pairs.size} 张"
+            val skipped = (uris.size - result.insertedCount).coerceAtLeast(0)
+            val baseMessage = if (skipped == 0) {
+                "已导入 ${result.insertedCount} 张"
             } else {
-                "已导入 ${pairs.size} 张，跳过 $skipped 张重复或无效图片"
+                "已导入 ${result.insertedCount} 张，跳过 $skipped 张重复或无效图片"
+            }
+            message = when {
+                result.refreshedLocationCount > 0 ->
+                    "$baseMessage，已刷新 ${result.refreshedLocationCount} 张照片的位置"
+                result.locatedCount > 0 ->
+                    "$baseMessage，其中 ${result.locatedCount} 张包含位置"
+                else ->
+                    "$baseMessage，未读取到照片位置"
             }
             importing = false
         }
     }
 
     val picker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickMultipleVisualMedia()
+        LocationAwarePickMultipleVisualMedia()
     ) { uris ->
         if (uris.isNotEmpty()) {
             pendingUris = uris
+        }
+    }
+    val originalFilePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        uris.forEach { uri ->
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+        }
+        if (uris.isNotEmpty()) {
+            pendingUris = uris
+        }
+    }
+    val imageOnlyRequest = remember {
+        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+    }
+    val mediaLocationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            message = "未允许读取照片位置，仍可导入，但照片地图可能无法显示定位"
+        }
+        if (granted) {
+            originalFilePicker.launch(arrayOf("image/*"))
+        } else {
+            picker.launch(imageOnlyRequest)
+        }
+    }
+    val openOriginalPicker = {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_MEDIA_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            showMediaLocationRationale = true
+        } else {
+            originalFilePicker.launch(arrayOf("image/*"))
         }
     }
 
@@ -296,11 +391,7 @@ fun HomeScreen(
                         )
                     }
                     Button(
-                        onClick = {
-                            picker.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        },
+                        onClick = { showImportSourceDialog = true },
                         enabled = !importing,
                         shape = RoundedCornerShape(20.dp),
                         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp),
@@ -597,6 +688,93 @@ fun HomeScreen(
                 )
             }
         }
+    }
+
+    if (showImportSourceDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportSourceDialog = false },
+            title = { Text("选择导入方式") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "普通导入更直观；需要在照片地图显示拍摄位置时，请选择原图导入。",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(
+                        onClick = {
+                            showImportSourceDialog = false
+                            picker.launch(imageOnlyRequest)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_action_import),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("从相册导入")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            showImportSourceDialog = false
+                            openOriginalPicker()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_import_original_location),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("导入原图并保留位置")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showImportSourceDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    if (showMediaLocationRationale) {
+        AlertDialog(
+            onDismissRequest = { showMediaLocationRationale = false },
+            title = { Text("允许读取照片位置？") },
+            text = {
+                Text(
+                    "照片地图需要读取你所选原图中的 EXIF 位置信息。PixVault 不会扫描整个相册，位置只保存在本机。"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showMediaLocationRationale = false
+                        mediaLocationPermissionLauncher.launch(
+                            Manifest.permission.ACCESS_MEDIA_LOCATION
+                        )
+                    }
+                ) {
+                    Text("继续授权")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showMediaLocationRationale = false
+                        message = "已跳过照片位置读取，仍可正常导入"
+                        picker.launch(imageOnlyRequest)
+                    }
+                ) {
+                    Text("仅导入照片")
+                }
+            }
+        )
     }
 
     val uris = pendingUris

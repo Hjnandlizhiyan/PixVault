@@ -35,7 +35,20 @@ class ImageRepository(
     suspend fun insertAll(images: List<ImageEntity>): List<Long> {
         val ids = imageDao.insertAll(images)
         images.zip(ids).forEach { (image, id) ->
-            if (id == -1L) storedImageFiles.delete(image)
+            if (id == -1L) {
+                val existing = image.contentHash?.let { imageDao.getByContentHash(it) }
+                if (existing != null && (image.dateTaken != null ||
+                        (image.latitude != null && image.longitude != null))
+                ) {
+                    imageDao.updateMetadata(
+                        id = existing.id,
+                        dateTaken = image.dateTaken ?: existing.dateTaken,
+                        latitude = image.latitude ?: existing.latitude,
+                        longitude = image.longitude ?: existing.longitude
+                    )
+                }
+                storedImageFiles.delete(image)
+            }
         }
         return ids
     }

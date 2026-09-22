@@ -51,7 +51,9 @@ fun PhotoMapScreen(repository: ImageRepository, onBack: () -> Unit) {
             }
         }
         if (images.isEmpty()) {
-            MascotEmptyState(message = "还没有带定位信息的照片")
+            MascotEmptyState(
+                message = "还没有可读取位置的照片。请允许读取照片位置后重新导入原图"
+            )
         } else {
             LazyColumn {
                 items(images, key = { it.id }) { image ->

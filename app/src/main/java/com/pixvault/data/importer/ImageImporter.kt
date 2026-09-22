@@ -1,9 +1,14 @@
 package com.pixvault.data.importer
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
 import android.provider.OpenableColumns
+import androidx.core.content.ContextCompat
 import com.pixvault.data.db.entity.ImageEntity
 import com.pixvault.data.util.Hashing
 import com.pixvault.data.util.PhotoMetadataReader
@@ -38,14 +43,40 @@ class ImageImporter(private val context: Context) {
 
             val dest = File(imagesDir, "${UUID.randomUUID()}${extensionFor(mimeType)}")
 
-            val contentHash = resolver.openInputStream(uri)?.use { input ->
-                dest.outputStream().use { output -> Hashing.copyAndSha256(input, output) }
+            val sourceUris = buildList {
+                if (
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.ACCESS_MEDIA_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    add(MediaStore.setRequireOriginal(uri))
+                }
+                add(uri)
+            }.distinct()
+            val sourceMetadata = sourceUris
+                .map { sourceUri -> PhotoMetadataReader.read(resolver, sourceUri) }
+                .firstOrNull { it.latitude != null && it.longitude != null }
+            val contentHash = sourceUris.firstNotNullOfOrNull { sourceUri ->
+                runCatching {
+                    resolver.openInputStream(sourceUri)?.use { input ->
+                        dest.outputStream().use { output ->
+                            Hashing.copyAndSha256(input, output)
+                        }
+                    }
+                }.getOrNull()
             } ?: return null
 
             val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(dest.absolutePath, opts)
 
-            val metadata = PhotoMetadataReader.read(dest.absolutePath)
+            val copiedMetadata = PhotoMetadataReader.read(dest.absolutePath)
+            val metadata = copiedMetadata.copy(
+                dateTaken = copiedMetadata.dateTaken ?: sourceMetadata?.dateTaken,
+                latitude = copiedMetadata.latitude ?: sourceMetadata?.latitude,
+                longitude = copiedMetadata.longitude ?: sourceMetadata?.longitude
+            )
 
             val now = System.currentTimeMillis()
             ImageEntity(

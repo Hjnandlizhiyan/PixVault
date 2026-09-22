@@ -153,6 +153,22 @@ fun SettingsScreen(
                 }
             )
             SettingActionRow(
+                title = "Bilibili 主页与充电",
+                subtitle = "前往作者主页，关注或为项目充电",
+                onClick = {
+                    uriHandler.openUri(
+                        "https://space.bilibili.com/521952225?spm_id_from=333.1007.0.0"
+                    )
+                }
+            )
+            SettingActionRow(
+                title = "访问个人网站",
+                subtitle = "打开 www.deepseeklover.com",
+                onClick = {
+                    uriHandler.openUri("https://www.deepseeklover.com")
+                }
+            )
+            SettingActionRow(
                 title = "重新查看新手指引",
                 subtitle = "导入、整理、本地 AI 与隐私说明",
                 onClick = onOpenOnboarding
